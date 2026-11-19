@@ -6,6 +6,7 @@
 //               connections round-robin. All workers share one SQLite file (WAL) and one rate-limit store.
 //
 // Env: PORT (3000) · BIND_HOST (0.0.0.0) · WEB_CONCURRENCY (1-16) · TRUST_PROXY_HOPS (0 = use socket address)
+//      CLIENT_IP_HEADER (optional, e.g. true-client-ip; wins over TRUST_PROXY_HOPS when present)
 import cluster from "node:cluster";
 import http from "node:http";
 import os from "node:os";
@@ -26,6 +27,7 @@ const PORT = intEnv("PORT", 3000, 1, 65535);
 const HOST = process.env.BIND_HOST ?? "0.0.0.0";
 const WORKERS = intEnv("WEB_CONCURRENCY", Math.min(os.availableParallelism(), 4), 1, 16);
 const TRUST_HOPS = intEnv("TRUST_PROXY_HOPS", 0, 0, 5);
+const IP_HEADER = (process.env.CLIENT_IP_HEADER ?? "").toLowerCase(); // e.g. true-client-ip: set by a CDN that overwrites client-supplied values
 const DRAIN_MS = 10_000; // max time a worker waits for in-flight requests
 
 if (cluster.isPrimary) {
@@ -69,6 +71,10 @@ if (cluster.isPrimary) {
   // The one place a client address is derived: the socket, or the Nth-from-right X-Forwarded-For entry
   // when a trusted proxy chain is declared. Inbound x-coy-client-ip is always overwritten.
   const clientIp = (req) => {
+    if (IP_HEADER) {
+      const h = String(req.headers[IP_HEADER] ?? "").trim();
+      if (h) return h.slice(0, 64);
+    }
     if (TRUST_HOPS > 0) {
       const xs = String(req.headers["x-forwarded-for"] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
       const v = xs[xs.length - TRUST_HOPS];

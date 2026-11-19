@@ -25,7 +25,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  feed: (limit = 15) => req<{ profiles: Profile[] }>(`/api/feed?limit=${limit}`),
+  feed: (limit = 15) => req<{ profiles: Profile[]; canReset: boolean }>(`/api/feed?limit=${limit}`),
   swipe: (targetId: string, direction: SwipeDirection) =>
     req<SwipeResult>("/api/swipe", { method: "POST", body: JSON.stringify({ targetId, direction }) }),
   matches: (cursor?: string, limit = 24) =>

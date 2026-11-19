@@ -26,7 +26,7 @@ export default function Discover() {
         </button>
       </div>
       {/* Keep the deck mounted so its queue and in-flight swipes survive switching views */}
-      <div hidden={view !== "swipe"}><SwipeDeck onMatch={onMatch} /></div>
+      <div hidden={view !== "swipe"}><SwipeDeck onMatch={onMatch} onReset={() => { setCount(0); setRefreshKey((k) => k + 1); }} /></div>
       {view === "matches" && <MatchesGrid refreshKey={refreshKey} onCount={onCount} />}
       {match && (
         <MatchOverlay p={match} onClose={() => setMatch(null)} onView={() => { setMatch(null); setView("matches"); }} />

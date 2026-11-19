@@ -15,6 +15,7 @@ export const config = {
   dbPath,
   rateLimitDbPath: process.env.RATE_LIMIT_DB_PATH ?? path.join(path.dirname(dbPath), "ratelimit.db"),
   feedSalt: process.env.FEED_SALT ?? "coy-feed-v1",
+  demoReset: process.env.NODE_ENV !== "production" || process.env.ENABLE_DEMO_RESET === "true",
   allowedHosts: (process.env.ALLOWED_HOSTS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
 
   busyTimeoutMs: int("DB_BUSY_TIMEOUT_MS", 3000, 100, 30_000),

@@ -13,7 +13,7 @@ ul { list-style: none; padding: 0; }
 @media (min-width: 520px) { .shell { height: min(900px, 100dvh - 32px); margin-top: 16px; border-radius: 28px; box-shadow: 0 24px 60px rgba(40, 10, 25, .12); } body { padding: 0; } }
 
 .top { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px 8px; }
-.wordmark { font-size: 28px; font-weight: 800; letter-spacing: -.04em; color: var(--accent); }
+.wordmark { text-decoration: none; font-size: 28px; font-weight: 800; letter-spacing: -.04em; color: var(--accent); }
 .pill-note { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 5px 10px; border-radius: 999px; }
 .screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .blank { flex: 1; }

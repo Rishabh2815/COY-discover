@@ -66,7 +66,7 @@ Errors: `400 invalid_body/invalid_query/invalid_cursor` · `403 bad_origin` · `
 
 ## Config
 
-`PORT` · `BIND_HOST` · `WEB_CONCURRENCY` (1-16) · `TRUST_PROXY_HOPS` (0-5) · `DATABASE_PATH` · `RATE_LIMIT_DB_PATH` · `DAILY_SWIPE_LIMIT` · `RL_FEED_PER_MIN` · `RL_MATCHES_PER_MIN` · `RL_SWIPE_PER_MIN` · `ALLOWED_HOSTS` (extra allowed Origin hosts) · `ENABLE_DEMO_RESET` · `DB_BUSY_TIMEOUT_MS` · `FEED_SALT`
+`PORT` · `BIND_HOST` · `WEB_CONCURRENCY` (1-16) · `TRUST_PROXY_HOPS` (0-5) · `CLIENT_IP_HEADER` (e.g. `true-client-ip`, takes precedence) · `DATABASE_PATH` · `RATE_LIMIT_DB_PATH` · `DAILY_SWIPE_LIMIT` · `RL_FEED_PER_MIN` · `RL_MATCHES_PER_MIN` · `RL_SWIPE_PER_MIN` · `ALLOWED_HOSTS` (extra allowed Origin hosts) · `ENABLE_DEMO_RESET` · `DB_BUSY_TIMEOUT_MS` · `FEED_SALT`
 
 ## Not done yet
 

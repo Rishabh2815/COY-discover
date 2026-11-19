@@ -15,5 +15,9 @@ services:
         value: /data/coy.db
       - key: WEB_CONCURRENCY
         value: "1"
+      - key: CLIENT_IP_HEADER
+        value: true-client-ip
       - key: TRUST_PROXY_HOPS
-        value: "1"
+        value: "2"
+      - key: ENABLE_DEMO_RESET
+        value: "true"

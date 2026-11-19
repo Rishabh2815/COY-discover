@@ -7,13 +7,14 @@ import ProfileCard from "./ProfileCard";
 const THRESHOLD = 110;
 const EXIT_MS = 300;
 
-export default function SwipeDeck({ onMatch }: { onMatch: (p: Profile) => void }) {
+export default function SwipeDeck({ onMatch, onReset }: { onMatch: (p: Profile) => void; onReset?: () => void }) {
   const [queue, setQueue] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
   const [exit, setExit] = useState<SwipeDirection | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [canReset, setCanReset] = useState(false);
   const seen = useRef(new Set<string>());
   const inflight = useRef(new Set<Promise<unknown>>());
   const fetching = useRef(false);
@@ -32,7 +33,8 @@ export default function SwipeDeck({ onMatch }: { onMatch: (p: Profile) => void }
     setLoading(true);
     try {
       await Promise.allSettled([...inflight.current]); // let pending swipes land so the server feed is current
-      const { profiles } = await api.feed(15);
+      const { profiles, canReset: reset } = await api.feed(15);
+      setCanReset(reset);
       setQueue((q) => {
         const have = new Set(q.map((p) => p.id));
         return [...q, ...profiles.filter((p) => !have.has(p.id) && !seen.current.has(p.id))];
@@ -139,8 +141,8 @@ export default function SwipeDeck({ onMatch }: { onMatch: (p: Profile) => void }
         <div className="emoji">🫶</div>
         <h3>You&apos;re all caught up</h3>
         <p>That&apos;s everyone for now. Nobody knows who likes whom until it&apos;s mutual, so check back soon.</p>
-        {process.env.NODE_ENV !== "production" && (
-          <button className="btn ghost" onClick={async () => { seen.current.clear(); await api.reset(); refill(); }}>
+        {canReset && (
+          <button className="btn ghost" onClick={async () => { seen.current.clear(); await api.reset(); onReset?.(); refill(); }}>
             Reset demo
           </button>
         )}
