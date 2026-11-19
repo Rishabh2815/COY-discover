@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Discover from "@/components/Discover";
+import Discover from "@/components/discover/Discover";
 
 type Tab = "home" | "discover";
 
