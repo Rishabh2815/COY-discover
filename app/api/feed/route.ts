@@ -1,13 +1,12 @@
 import { viewerId } from "@/lib/auth";
-import { handle } from "@/lib/http";
+import { config } from "@/lib/config";
+import { handle, intParam } from "@/lib/http";
 import { getFeed } from "@/lib/service";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/feed?limit=10 -> { profiles: Profile[] } (unswiped only, no like-status fields)
+// GET /api/feed?limit=10 -> { profiles } (unswiped only, no like-status fields, at most config.feed.max)
 export const GET = (req: Request) =>
-  handle(() => {
-    const raw = Number(new URL(req.url).searchParams.get("limit") ?? 10);
-    const limit = Number.isFinite(raw) ? Math.min(Math.max(Math.trunc(raw), 1), 50) : 10;
-    return { profiles: getFeed(viewerId(), limit) };
-  });
+  handle(req, { limit: "feed" }, () => ({
+    profiles: getFeed(viewerId(), intParam(new URL(req.url), "limit", config.feed.def, 1, config.feed.max)),
+  }));

@@ -67,7 +67,13 @@ export default function SwipeDeck({ onMatch }: { onMatch: (p: Profile) => void }
           if (e instanceof ApiError && e.status > 0 && e.status < 500 && e.status !== 429) return; // final / invalid: keep it gone
           seen.current.delete(p.id);
           setQueue((q) => [p, ...q]);
-          flash("Couldn't save that swipe. Try again.");
+          flash(
+            e instanceof ApiError && e.message === "daily_limit_reached"
+              ? "You've reached today's swipe limit. Come back tomorrow."
+              : e instanceof ApiError && e.status === 429
+                ? "Easy there. Try again in a moment."
+                : "Couldn't save that swipe. Try again."
+          );
         })
         .finally(() => inflight.current.delete(job));
       inflight.current.add(job);

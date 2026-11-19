@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node server.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "db:reset": "rm -f data/coy.db data/coy.db-wal data/coy.db-shm"
+    "db:reset": "rm -f data/coy.db data/coy.db-wal data/coy.db-shm",
+    "start:single": "next start",
+    "load": "node scripts/load.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.2.0",

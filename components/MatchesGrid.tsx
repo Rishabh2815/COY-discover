@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { MatchItem } from "@/lib/types";
 import { Photo } from "./ProfileCard";
@@ -14,18 +14,39 @@ const ago = (t: number) => {
 
 export default function MatchesGrid({ refreshKey, onCount }: { refreshKey: number; onCount: (n: number) => void }) {
   const [items, setItems] = useState<MatchItem[] | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    let live = true;
-    api.matches().then(
-      (r) => { if (live) { setItems(r.matches); onCount(r.matches.length); setError(false); } },
-      () => live && setError(true)
-    );
-    return () => { live = false; };
-  }, [refreshKey, onCount]);
+  const load = useCallback(
+    async (from?: string) => {
+      setBusy(true);
+      try {
+        const page = await api.matches(from);
+        setItems((prev) => (from && prev ? [...prev, ...page.matches] : page.matches));
+        setCursor(page.nextCursor);
+        onCount(page.total);
+        setError(false);
+      } catch {
+        setError(true);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onCount]
+  );
 
-  if (error) return <div className="state"><h3>Couldn&apos;t load matches</h3><p>Pull back and try again.</p></div>;
+  useEffect(() => {
+    load();
+  }, [load, refreshKey]);
+
+  if (error && !items)
+    return (
+      <div className="state">
+        <h3>Couldn&apos;t load matches</h3>
+        <button className="btn" onClick={() => load()}>Retry</button>
+      </div>
+    );
   if (!items) return <div className="state"><div className="spinner" /></div>;
   if (!items.length)
     return (
@@ -47,6 +68,11 @@ export default function MatchesGrid({ refreshKey, onCount }: { refreshKey: numbe
           </div>
         </li>
       ))}
+      {cursor && (
+        <li className="more">
+          <button className="btn ghost" disabled={busy} onClick={() => load(cursor)}>{busy ? "Loading…" : "Load more"}</button>
+        </li>
+      )}
     </ul>
   );
 }

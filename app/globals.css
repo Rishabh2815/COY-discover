@@ -97,3 +97,4 @@ ul { list-style: none; padding: 0; }
 .ph.avatar { position: static; font-size: 44px; }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } .card.top { transition-duration: 1ms !important; } }
+.grid .more { grid-column: 1 / -1; display: grid; place-items: center; }

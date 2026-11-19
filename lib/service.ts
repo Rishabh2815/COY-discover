@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
+import { config } from "./config";
 import { getDb } from "./db";
-import type { MatchItem, Profile, SwipeDirection, SwipeResult } from "./types";
+import type { MatchPage, Profile, SwipeDirection, SwipeResult } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string) {
@@ -14,30 +14,30 @@ const toProfile = (r: UserRow): Profile => ({
   interests: JSON.parse(r.interests) as string[],
 });
 
-const FEED_SALT = process.env.FEED_SALT ?? "coy-feed-v1";
+export const ID_RE = /^[a-z0-9_-]{1,32}$/;
+const CURSOR_RE = /^(\d{1,15}):([a-z0-9_-]{1,32})$/;
+const clamp = (n: number, min: number, max: number) => Math.min(Math.max(Math.trunc(n), min), max);
 
 /**
- * Profiles the viewer has not swiped on yet.
+ * Profiles the viewer has not swiped on yet, at most `limit` (hard cap config.feed.max).
  *
  * Privacy: Tinder/Hinge-style feeds quietly rank people who liked you first. Coy's promise
  * forbids that, because feed position would leak who liked you. Here the order is a keyed hash of
  * (viewer, candidate): stable across reloads, different per viewer, and independent of anything
- * the candidate has done. The query never touches swipe rows made by other users.
+ * the candidate has done. The query never reads swipe rows made by other users.
+ * The ORDER BY ... LIMIT is a top-N heap inside SQLite, so memory stays O(limit), not O(users).
  */
 export function getFeed(viewer: string, limit: number): Profile[] {
   const rows = getDb()
     .prepare(
       `SELECT u.* FROM users u
        WHERE u.id <> @viewer
-         AND NOT EXISTS (SELECT 1 FROM swipes s WHERE s.swiper_id = @viewer AND s.target_id = u.id)`
+         AND NOT EXISTS (SELECT 1 FROM swipes s WHERE s.swiper_id = @viewer AND s.target_id = u.id)
+       ORDER BY feed_rank(@viewer, u.id)
+       LIMIT @limit`
     )
-    .all({ viewer }) as UserRow[];
-  const rank = (id: string) => createHash("sha256").update(`${FEED_SALT}:${viewer}:${id}`).digest("hex");
-  return rows
-    .map((r) => [rank(r.id), r] as const)
-    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-    .slice(0, limit)
-    .map(([, r]) => toProfile(r));
+    .all({ viewer, limit: clamp(limit, 1, config.feed.max) }) as UserRow[];
+  return rows.map(toProfile);
 }
 
 const pair = (a: string, b: string) => (a < b ? [a, b] : [b, a]);
@@ -62,6 +62,10 @@ export function swipe(viewer: string, targetId: string, direction: SwipeDirectio
     if (prior && prior.direction !== direction) throw new ApiError(409, "swipe_is_final");
 
     if (!prior) {
+      const used = db
+        .prepare("SELECT COUNT(*) AS n FROM swipes WHERE swiper_id = ? AND created_at >= ?")
+        .get(viewer, Date.now() - 86_400_000) as { n: number };
+      if (used.n >= config.dailySwipeLimit) throw new ApiError(429, "daily_limit_reached");
       db.prepare("INSERT INTO swipes (swiper_id, target_id, direction, created_at) VALUES (?, ?, ?, ?)").run(
         viewer, targetId, direction, Date.now()
       );
@@ -83,15 +87,39 @@ export function swipe(viewer: string, targetId: string, direction: SwipeDirectio
   return run.immediate();
 }
 
-/** Mutual matches only. There is deliberately no endpoint for "who liked me". */
-export function getMatches(viewer: string): MatchItem[] {
-  const rows = getDb()
+/**
+ * Mutual matches only, newest first, one bounded page at a time (cursor = "<created_at>:<partner id>").
+ * There is deliberately no endpoint for "who liked me".
+ */
+export function getMatches(viewer: string, limit: number, cursor?: string): MatchPage {
+  const db = getDb();
+  let t = Number.MAX_SAFE_INTEGER;
+  let id = "\uffff";
+  if (cursor !== undefined) {
+    const m = CURSOR_RE.exec(cursor);
+    if (!m) throw new ApiError(400, "invalid_cursor");
+    t = Number(m[1]);
+    id = m[2];
+  }
+  const size = clamp(limit, 1, config.matches.max);
+  const rows = db
     .prepare(
       `SELECT u.*, m.created_at AS matched_at FROM matches m
        JOIN users u ON u.id = CASE WHEN m.user_a = @viewer THEN m.user_b ELSE m.user_a END
-       WHERE m.user_a = @viewer OR m.user_b = @viewer
-       ORDER BY m.created_at DESC`
+       WHERE (m.user_a = @viewer OR m.user_b = @viewer)
+         AND (m.created_at < @t OR (m.created_at = @t AND u.id < @id))
+       ORDER BY m.created_at DESC, u.id DESC
+       LIMIT @size`
     )
-    .all({ viewer }) as (UserRow & { matched_at: number })[];
-  return rows.map((r) => ({ ...toProfile(r), matchedAt: r.matched_at }));
+    .all({ viewer, t, id, size: size + 1 }) as (UserRow & { matched_at: number })[];
+  const page = rows.slice(0, size);
+  const last = page[page.length - 1];
+  const total = db
+    .prepare("SELECT (SELECT COUNT(*) FROM matches WHERE user_a = @v) + (SELECT COUNT(*) FROM matches WHERE user_b = @v) AS n")
+    .get({ v: viewer }) as { n: number };
+  return {
+    matches: page.map((r) => ({ ...toProfile(r), matchedAt: r.matched_at })),
+    nextCursor: rows.length > size && last ? `${last.matched_at}:${last.id}` : null,
+    total: total.n,
+  };
 }
